@@ -279,6 +279,43 @@ async def untimeout(
         f"🔓 UNTIMEOUT | 実行者: {interaction.user} | 対象: {member} | 理由: {reason}"
     )
 
+@bot.tree.command(name="banlist", description="サーバーのBAN一覧を表示します")
+@app_commands.checks.has_permissions(ban_members=True)
+async def banlist(interaction: discord.Interaction):
+    bans = [entry async for entry in interaction.guild.bans()]
 
+    if not bans:
+        await interaction.response.send_message(
+            "このサーバーにはBANされているユーザーはいません。",
+            ephemeral=True
+        )
+        return
+
+    ban_text = ""
+    for entry in bans:
+        user = entry.user
+        reason = entry.reason or "無し"
+        ban_text += f"👤 **{user}** (`{user.id}`)\n📝 {reason}\n\n"
+
+    # Discordの2000文字制限対策
+    if len(ban_text) > 1900:
+        ban_text = ban_text[:1900] + "\n...（省略）"
+
+    embed = discord.Embed(
+        title="🚫 BANリスト",
+        description=ban_text,
+        color=discord.Color.red()
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+@banlist.error
+async def banlist_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message(
+            "このコマンドを使う権限がありません。",
+            ephemeral=True
+        )
 
 bot.run(os.getenv("TOKEN"))
+
