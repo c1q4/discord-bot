@@ -282,7 +282,7 @@ async def untimeout(
 
 @bot.tree.command(
     name="banlist",
-    description="BANリストを表示します。また、IDを指定するとそのユーザーがサーバーからBANされているか確認することができます。"
+    description="BANされているユーザーの一覧を表示します。また、IDを指定するとそのユーザーがBANされているか確認することができます。"
 )
 @app_commands.describe(
     user_id="BANされているか確認したいユーザーID"
@@ -294,7 +294,7 @@ async def banlist(
 ):
     bans = [entry async for entry in interaction.guild.bans()]
 
-    # ---------- 特定IDチェック ----------
+    # -------- 特定IDチェック --------
     if user_id:
         for entry in bans:
             if str(entry.user.id) == user_id:
@@ -310,7 +310,7 @@ async def banlist(
         )
         return
 
-    # ---------- BAN一覧 ----------
+    # -------- BAN一覧表示 --------
     if not bans:
         await interaction.response.send_message(
             "このサーバーにはBANされているユーザーはいません。",
@@ -318,20 +318,14 @@ async def banlist(
         )
         return
 
-    # txt内容作成（IDのみ）
-    text = ""
-    for entry in bans:
-        text += f"`{entry.user.id}`\n"
+    ids = "\n".join(f"`{entry.user.id}`" for entry in bans)
 
-    # txtファイル化（メモリ上）
-    file = discord.File(
-        io.BytesIO(text.encode("utf-8")),
-        filename="banlist.txt"
-    )
+    # 2000文字制限対策
+    if len(ids) > 1900:
+        ids = ids[:1900] + "\n...（省略）"
 
     await interaction.response.send_message(
-        content=f"🚫 BANユーザー数：**{len(bans)}**",
-        file=file,
+        content=f"🚫 **BANユーザーID一覧（{len(bans)}人）**\n{ids}",
         ephemeral=True
     )
 
@@ -345,5 +339,6 @@ async def banlist_error(interaction: discord.Interaction, error):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
