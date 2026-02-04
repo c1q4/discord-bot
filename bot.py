@@ -294,7 +294,7 @@ class BanListView(View):
         start = self.page * ITEMS_PER_PAGE
         end = start + ITEMS_PER_PAGE
         chunk = self.bans[start:end]
-        content = "\n".join(f"UserID:`{entry.user.id}`\nUsername{entry.user}" for entry in chunk)
+        content = "\n".join(f"ユーザーID:`{entry.user.id}`\nユーザーネーム:{entry.user}" for entry in chunk)
         content = f"🚫 **BANユーザーID一覧（{len(self.bans)}人）**\n{content}"
         if self.max_page > 0:
             content += f"\n\nページ {self.page + 1}/{self.max_page + 1}"
@@ -341,12 +341,12 @@ async def banlist(interaction: discord.Interaction, user_id: str | None = None):
         for entry in bans:
             if str(entry.user.id) == user_id:
                 await interaction.response.send_message(
-                    f"🚫 UserID `{user_id}`\nUsername {entry.user} は **BANされています**。",
+                    f"🚫 ユーザーID:`{user_id}`\nユーザーネーム:{entry.user} は **BANされています**。",
                     ephemeral=True
                 )
                 return
         await interaction.response.send_message(
-            f"✅ UserID `{user_id}`\nUsername {entry.user} は **BANされていません**。",
+            f"✅ ユーザーID:`{user_id}`\nユーザーネーム:{entry.user} は **BANされていません**。",
             ephemeral=True
         )
         return
@@ -373,4 +373,5 @@ async def banlist_error(interaction: discord.Interaction, error):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
