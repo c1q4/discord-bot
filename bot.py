@@ -1,10 +1,10 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import os
 from dotenv import load_dotenv
+from discord.ui import View, Button
 import io
-
+import os
 # .env から TOKEN を読み込む
 load_dotenv()
 
@@ -280,12 +280,58 @@ async def untimeout(
         f"🔓 UNTIMEOUT | 実行者: {interaction.user} | 対象: {member} | 理由: {reason}"
     )
 
+ITEMS_PER_PAGE = 10
+
+class BanListView(View):
+    def __init__(self, bans, author_id):
+        super().__init__(timeout=180)  # 3分でタイムアウト
+        self.bans = bans
+        self.page = 0
+        self.author_id = author_id
+        self.max_page = (len(bans) - 1) // ITEMS_PER_PAGE
+
+    async def update_message(self, interaction):
+        start = self.page * ITEMS_PER_PAGE
+        end = start + ITEMS_PER_PAGE
+        chunk = self.bans[start:end]
+        content = "\n".join(f"`{entry.user.id}` - {entry.user}" for entry in chunk)
+        content = f"🚫 **BANユーザーID一覧（{len(self.bans)}人）**\n{content}"
+        if len(self.bans) > ITEMS_PER_PAGE:
+            content += f"\n\nページ {self.page+1}/{self.max_page+1}"
+        await interaction.response.edit_message(content=content, view=self)
+
+    # ←ボタン
+    @discord.ui.button(label="⬅️", style=discord.ButtonStyle.blurple)
+    async def prev(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("これはあなた専用のボタンです。", ephemeral=True)
+            return
+        if self.page > 0:
+            self.page -= 1
+            await self.update_message(interaction)
+        else:
+            await interaction.response.defer()
+
+    # ➡ボタン
+    @discord.ui.button(label="➡️", style=discord.ButtonStyle.blurple)
+    async def next(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("これはあなた専用のボタンです。", ephemeral=True)
+            return
+        if self.page < self.max_page:
+            self.page += 1
+            await self.update_message(interaction)
+        else:
+            await interaction.response.defer()
+
+
+# --------- /banlist コマンド ---------
 @bot.tree.command(
     name="banlist",
-    description="BANされているユーザーの一覧を表示します。また、IDを指定するとそのユーザーがBANされているか確認することができます。"
+    description="BANされているユーザーの一覧を表示します。また、IDを指定するとそのユーザーがBANされているか確認することができます。
 )
 @app_commands.describe(
-    user_id="BANされているか確認したいユーザーID"
+    user_id="BANされているか確認したいユーザーのID"
 )
 @app_commands.checks.has_permissions(ban_members=True)
 async def banlist(
@@ -294,12 +340,12 @@ async def banlist(
 ):
     bans = [entry async for entry in interaction.guild.bans()]
 
-    # -------- 特定IDチェック --------
+    # 特定IDチェック
     if user_id:
         for entry in bans:
             if str(entry.user.id) == user_id:
                 await interaction.response.send_message(
-                    f"🚫 ユーザーID `{user_id}` は **BANされています**。",
+                    f"🚫 ユーザーID `{user_id}` - {entry.user} は **BANされています**。",
                     ephemeral=True
                 )
                 return
@@ -310,7 +356,6 @@ async def banlist(
         )
         return
 
-    # -------- BAN一覧表示 --------
     if not bans:
         await interaction.response.send_message(
             "このサーバーにはBANされているユーザーはいません。",
@@ -318,16 +363,15 @@ async def banlist(
         )
         return
 
-    ids = "\n".join(f"`{entry.user.id}`" for entry in bans)
-
-    # 2000文字制限対策
-    if len(ids) > 1900:
-        ids = ids[:1900] + "\n...（省略）"
-
+    # ページング表示
+    view = BanListView(bans, interaction.user.id)
     await interaction.response.send_message(
-        content=f"🚫 **BANユーザーID一覧（{len(bans)}人）**\n{ids}",
+        content="",  # 最初は空、update_messageで更新
+        view=view,
         ephemeral=True
     )
+    await view.update_message(interaction)
+
 
 @banlist.error
 async def banlist_error(interaction: discord.Interaction, error):
@@ -337,8 +381,8 @@ async def banlist_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
-
 bot.run(os.getenv("TOKEN"))
+
 
 
 
