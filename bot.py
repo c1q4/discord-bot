@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import os
 from dotenv import load_dotenv
+import io
 
 # .env から TOKEN を読み込む
 load_dotenv()
@@ -279,11 +280,37 @@ async def untimeout(
         f"🔓 UNTIMEOUT | 実行者: {interaction.user} | 対象: {member} | 理由: {reason}"
     )
 
-@bot.tree.command(name="banlist", description="サーバーのBAN一覧を表示します")
+@bot.tree.command(
+    name="banlist",
+    description="BANリストを表示します。また、IDを指定するとそのユーザーがサーバーからBANされているか確認することができます。"
+)
+@app_commands.describe(
+    user_id="BANされているか確認したいユーザーID"
+)
 @app_commands.checks.has_permissions(ban_members=True)
-async def banlist(interaction: discord.Interaction):
+async def banlist(
+    interaction: discord.Interaction,
+    user_id: str | None = None
+):
     bans = [entry async for entry in interaction.guild.bans()]
 
+    # ---------- 特定IDチェック ----------
+    if user_id:
+        for entry in bans:
+            if str(entry.user.id) == user_id:
+                await interaction.response.send_message(
+                    f"🚫 ユーザーID `{user_id}` は **BANされています**。",
+                    ephemeral=True
+                )
+                return
+
+        await interaction.response.send_message(
+            f"✅ ユーザーID `{user_id}` は **BANされていません**。",
+            ephemeral=True
+        )
+        return
+
+    # ---------- BAN一覧 ----------
     if not bans:
         await interaction.response.send_message(
             "このサーバーにはBANされているユーザーはいません。",
@@ -291,23 +318,22 @@ async def banlist(interaction: discord.Interaction):
         )
         return
 
-    ban_text = ""
+    # txt内容作成（IDのみ）
+    text = ""
     for entry in bans:
-        user = entry.user
-        reason = entry.reason or "無し"
-        ban_text += f"👤 **{user}** (`{user.id}`)\n📝 {reason}\n\n"
+        text += f"`{entry.user.id}`\n"
 
-    # Discordの2000文字制限対策
-    if len(ban_text) > 1900:
-        ban_text = ban_text[:1900] + "\n...（省略）"
-
-    embed = discord.Embed(
-        title="🚫 BANリスト",
-        description=ban_text,
-        color=discord.Color.red()
+    # txtファイル化（メモリ上）
+    file = discord.File(
+        io.BytesIO(text.encode("utf-8")),
+        filename="banlist.txt"
     )
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(
+        content=f"🚫 BANユーザー数：**{len(bans)}**",
+        file=file,
+        ephemeral=True
+    )
 
 @banlist.error
 async def banlist_error(interaction: discord.Interaction, error):
@@ -317,5 +343,7 @@ async def banlist_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
+
 bot.run(os.getenv("TOKEN"))
+
 
