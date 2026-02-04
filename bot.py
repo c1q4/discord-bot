@@ -328,7 +328,7 @@ class BanListView(View):
 # --------- /banlist コマンド ---------
 @bot.tree.command(
     name="banlist",
-    description="BANされているユーザーの一覧を表示します。また、IDを指定するとそのユーザーがBANされているか確認することができます。
+    description="BANされているユーザーの一覧を表示します。また、IDを指定するとそのユーザーがBANされているか確認することができます。"
 )
 @app_commands.describe(
     user_id="BANされているか確認したいユーザーのID"
@@ -382,6 +382,7 @@ async def banlist_error(interaction: discord.Interaction, error):
         )
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
