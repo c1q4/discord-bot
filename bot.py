@@ -284,23 +284,26 @@ ITEMS_PER_PAGE = 10
 
 class BanListView(View):
     def __init__(self, bans, author_id):
-        super().__init__(timeout=180)  # 3分でタイムアウト
+        super().__init__(timeout=180)
         self.bans = bans
-        self.page = 0
         self.author_id = author_id
+        self.page = 0
         self.max_page = (len(bans) - 1) // ITEMS_PER_PAGE
 
-    async def update_message(self, interaction):
+    def get_page_content(self):
         start = self.page * ITEMS_PER_PAGE
         end = start + ITEMS_PER_PAGE
         chunk = self.bans[start:end]
         content = "\n".join(f"`{entry.user.id}` - {entry.user}" for entry in chunk)
         content = f"🚫 **BANユーザーID一覧（{len(self.bans)}人）**\n{content}"
-        if len(self.bans) > ITEMS_PER_PAGE:
-            content += f"\n\nページ {self.page+1}/{self.max_page+1}"
+        if self.max_page > 0:
+            content += f"\n\nページ {self.page + 1}/{self.max_page + 1}"
+        return content
+
+    async def update_message(self, interaction):
+        content = self.get_page_content()
         await interaction.response.edit_message(content=content, view=self)
 
-    # ←ボタン
     @discord.ui.button(label="⬅️", style=discord.ButtonStyle.blurple)
     async def prev(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.author_id:
@@ -312,7 +315,6 @@ class BanListView(View):
         else:
             await interaction.response.defer()
 
-    # ➡ボタン
     @discord.ui.button(label="➡️", style=discord.ButtonStyle.blurple)
     async def next(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.author_id:
@@ -325,19 +327,13 @@ class BanListView(View):
             await interaction.response.defer()
 
 
-# --------- /banlist コマンド ---------
 @bot.tree.command(
     name="banlist",
     description="BANされているユーザーの一覧を表示します。また、IDを指定するとそのユーザーがBANされているか確認することができます。"
 )
-@app_commands.describe(
-    user_id="BANされているか確認したいユーザーのID"
-)
+@app_commands.describe(user_id="BANされているか確認したいユーザーID")
 @app_commands.checks.has_permissions(ban_members=True)
-async def banlist(
-    interaction: discord.Interaction,
-    user_id: str | None = None
-):
+async def banlist(interaction: discord.Interaction, user_id: str | None = None):
     bans = [entry async for entry in interaction.guild.bans()]
 
     # 特定IDチェック
@@ -345,11 +341,10 @@ async def banlist(
         for entry in bans:
             if str(entry.user.id) == user_id:
                 await interaction.response.send_message(
-                    f"🚫 ユーザーID `{user_id}` - {entry.user} は **BANされています**。",
+                    f"🚫 ユーザーID``{user_id}` - {entry.user} は **BANされています**。",
                     ephemeral=True
                 )
                 return
-
         await interaction.response.send_message(
             f"✅ ユーザーID `{user_id}` は **BANされていません**。",
             ephemeral=True
@@ -363,14 +358,9 @@ async def banlist(
         )
         return
 
-    # ページング表示
     view = BanListView(bans, interaction.user.id)
-    await interaction.response.send_message(
-        content="",  # 最初は空、update_messageで更新
-        view=view,
-        ephemeral=True
-    )
-    await view.update_message(interaction)
+    content = view.get_page_content()  # 最初のページを作成して送信
+    await interaction.response.send_message(content=content, view=view, ephemeral=True)
 
 
 @banlist.error
@@ -381,9 +371,5 @@ async def banlist_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
+
 bot.run(os.getenv("TOKEN"))
-
-
-
-
-
