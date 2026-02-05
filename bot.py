@@ -506,8 +506,61 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
             "権限が足りません。（Botのロール位置を確認してください）",
             ephemeral=True
         )
-        
+
+@bot.tree.command(name="lock", description="このチャンネルをロックします")
+async def lock(interaction: discord.Interaction):
+
+    channel = interaction.channel
+
+    # 権限チェック（管理者のみ）
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message(
+            "このコマンドを使う権限がありません。",
+            ephemeral=True
+        )
+        return
+
+    overwrite = channel.overwrites_for(interaction.guild.default_role)
+    overwrite.send_messages = False
+    overwrite.add_reactions = False
+
+    await channel.set_permissions(
+        interaction.guild.default_role,
+        overwrite=overwrite
+    )
+
+    await interaction.response.send_message(
+        f"🔒 {channel.mention} をロックしました"
+    )
+
+
+@bot.tree.command(name="unlock", description="このチャンネルのロックを解除します")
+async def unlock(interaction: discord.Interaction):
+
+    channel = interaction.channel
+
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message(
+            "このコマンドを使う権限がありません。",
+            ephemeral=True
+        )
+        return
+
+    overwrite = channel.overwrites_for(interaction.guild.default_role)
+    overwrite.send_messages = None
+    overwrite.add_reactions = None
+
+    await channel.set_permissions(
+        interaction.guild.default_role,
+        overwrite=overwrite
+    )
+
+    await interaction.response.send_message(
+        f"🔓 {channel.mention} のロックを解除しました"
+    )
+
 bot.run(os.getenv("TOKEN"))
+
 
 
 
