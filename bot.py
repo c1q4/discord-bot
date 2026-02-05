@@ -513,8 +513,7 @@ LOCK_ROLES_IDS = [
     1465281528300048437,
 ]
 
-# ====== LOCK コマンド ======
-@bot.tree.command(name="lock", description="このチャンネルをロックします")
+@bot.tree.command(name="lock", description="チャンネルをロックします")
 async def lock(interaction: discord.Interaction):
 
     if not interaction.user.guild_permissions.manage_channels:
@@ -530,17 +529,19 @@ async def lock(interaction: discord.Interaction):
         role = interaction.guild.get_role(role_id)
         if role is None:
             continue
-
         overwrite = channel.overwrites_for(role)
         overwrite.send_messages = False
         overwrite.add_reactions = False
         await channel.set_permissions(role, overwrite=overwrite)
 
-    await interaction.response.send_message(
-        "🔒 {channel.mention} をロックしました"
+    # Embed を作成してチャンネルリンクを表示
+    embed = discord.Embed(
+        description=f"({channel.jump_url})をロックしました",  # jump_url でクリック可能
+        color=discord.Color.red()
     )
+    await interaction.response.send_message(embed=embed)
 
-# ====== UNLOCK コマンド ======
+
 @bot.tree.command(name="unlock", description="このチャンネルのロックを解除します")
 async def unlock(interaction: discord.Interaction):
 
@@ -557,18 +558,20 @@ async def unlock(interaction: discord.Interaction):
         role = interaction.guild.get_role(role_id)
         if role is None:
             continue
-
         overwrite = channel.overwrites_for(role)
         overwrite.send_messages = None
         overwrite.add_reactions = None
         await channel.set_permissions(role, overwrite=overwrite)
 
-    await interaction.response.send_message(
-        "🔓 {channel.mention} のロックを解除しました"
+    embed = discord.Embed(
+        description=f"({channel.jump_url})のロックを解除しました",  # jump_url でクリック可能
+        color=discord.Color.green()
     )
+    await interaction.response.send_message(embed=embed)
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
