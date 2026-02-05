@@ -498,7 +498,7 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
         await member.add_roles(to_role)
 
         await interaction.response.send_message(
-            f"{member.mention} のロールを **{from_role.name} → {to_role.name}** に入れ替えました ✅"
+            f"認証完了！✅"
         )
 
     except discord.Forbidden:
@@ -507,12 +507,16 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
+# 最初から決まったロールID（ロック対象）
+LOCK_ROLES_IDS = [
+    1465097164249370624,  # Member
+    1465281528300048437,
+]
+
+# ====== LOCK コマンド ======
 @bot.tree.command(name="lock", description="このチャンネルをロックします")
 async def lock(interaction: discord.Interaction):
 
-    channel = interaction.channel
-
-    # 権限チェック（管理者のみ）
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message(
             "このコマンドを使う権限がありません。",
@@ -520,25 +524,26 @@ async def lock(interaction: discord.Interaction):
         )
         return
 
-    overwrite = channel.overwrites_for(interaction.guild.default_role)
-    overwrite.send_messages = False
-    overwrite.add_reactions = False
+    channel = interaction.channel
 
-    await channel.set_permissions(
-        interaction.guild.default_role,
-        overwrite=overwrite
-    )
+    for role_id in LOCK_ROLES_IDS:
+        role = interaction.guild.get_role(role_id)
+        if role is None:
+            continue
+
+        overwrite = channel.overwrites_for(role)
+        overwrite.send_messages = False
+        overwrite.add_reactions = False
+        await channel.set_permissions(role, overwrite=overwrite)
 
     await interaction.response.send_message(
-        f"🔒 {channel.mention} をロックしました"
+        "🔒 {channel.mention}をロックしました"
     )
 
-
+# ====== UNLOCK コマンド ======
 @bot.tree.command(name="unlock", description="このチャンネルのロックを解除します")
 async def unlock(interaction: discord.Interaction):
 
-    channel = interaction.channel
-
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message(
             "このコマンドを使う権限がありません。",
@@ -546,20 +551,25 @@ async def unlock(interaction: discord.Interaction):
         )
         return
 
-    overwrite = channel.overwrites_for(interaction.guild.default_role)
-    overwrite.send_messages = None
-    overwrite.add_reactions = None
+    channel = interaction.channel
 
-    await channel.set_permissions(
-        interaction.guild.default_role,
-        overwrite=overwrite
-    )
+    for role_id in LOCK_ROLES_IDS:
+        role = interaction.guild.get_role(role_id)
+        if role is None:
+            continue
+
+        overwrite = channel.overwrites_for(role)
+        overwrite.send_messages = None
+        overwrite.add_reactions = None
+        await channel.set_permissions(role, overwrite=overwrite)
 
     await interaction.response.send_message(
-        f"🔓 {channel.mention} のロックを解除しました"
+        "🔓 {channel.mention}のロックを解除しました"
     )
 
+
 bot.run(os.getenv("TOKEN"))
+
 
 
 
