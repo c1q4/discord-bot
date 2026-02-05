@@ -469,8 +469,8 @@ async def purge_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
-REMOVE_ROLE_ID = 1465281528300048437
-ADD_ROLE_ID    = 1465097164249370624
+FROM_ROLE_ID = 1465281528300048437
+TO_ROLE_ID   = 1465097164249370624
 
 @bot.tree.command(name="verify", description="メンバーを認証済みの状態にします。")
 @app_commands.describe(member="認証するメンバー")
@@ -508,6 +508,7 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
         )
         
 bot.run(os.getenv("TOKEN"))
+
 
 
 
