@@ -536,7 +536,7 @@ async def lock(interaction: discord.Interaction):
 
     # Embed を作成してチャンネルリンクを表示
     embed = discord.Embed(
-        description=f"({channel.jump_url})をロックしました",  # jump_url でクリック可能
+        description=f"{channel.jump_url}をロックしました",  # jump_url でクリック可能
         color=discord.Color.red()
     )
     await interaction.response.send_message(embed=embed)
@@ -564,13 +564,14 @@ async def unlock(interaction: discord.Interaction):
         await channel.set_permissions(role, overwrite=overwrite)
 
     embed = discord.Embed(
-        description=f"({channel.jump_url})のロックを解除しました",  # jump_url でクリック可能
+        description=f"{channel.jump_url}のロックを解除しました",  # jump_url でクリック可能
         color=discord.Color.green()
     )
     await interaction.response.send_message(embed=embed)
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
