@@ -537,7 +537,7 @@ async def lock(interaction: discord.Interaction):
         await channel.set_permissions(role, overwrite=overwrite)
 
     await interaction.response.send_message(
-        "🔒 {channel.mention}をロックしました"
+        "🔒 {channel.mention} をロックしました"
     )
 
 # ====== UNLOCK コマンド ======
@@ -564,11 +564,12 @@ async def unlock(interaction: discord.Interaction):
         await channel.set_permissions(role, overwrite=overwrite)
 
     await interaction.response.send_message(
-        "🔓 {channel.mention}のロックを解除しました"
+        "🔓 {channel.mention} のロックを解除しました"
     )
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
