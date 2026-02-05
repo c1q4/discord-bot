@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
 from discord.ui import View, Button
+from datetime import datetime
 import io
 import os
 # .env から TOKEN を読み込む
@@ -84,7 +85,7 @@ async def ban(
  
     await send_log(
     interaction.guild,
-    f"🚫 BAN | 実行者: {interaction.user} | 対象: {member} | 理由: {reason}"
+    f"🚫 BAN\n実行者: {interaction.user}\n対象: {member}\n理由: {reason}"
     )
 
 
@@ -157,7 +158,7 @@ async def kick(
 
     await send_log(
         interaction.guild,
-        f"👢 KICK | 実行者: {interaction.user} | 対象: {member} | 理由: {reason}"
+        f"👢 KICK\n実行者: {interaction.user}\n対象: {member}\n理由: {reason}"
     )
 
 
@@ -211,7 +212,7 @@ async def timeout(
 
     await send_log(
         interaction.guild,
-        f"⏳ TIMEOUT | 実行者: {interaction.user} | 対象: {member} | {minutes}分 | 理由: {reason}"
+        f"⏳ TIMEOUT\n実行者: {interaction.user}\n対象: {member}\n理由: {reason}"
     )
 
 LOG_CHANNEL_ID = 1465703396853026973
@@ -277,7 +278,7 @@ async def untimeout(
     # ログ送信
     await send_log(
         interaction.guild,
-        f"🔓 UNTIMEOUT | 実行者: {interaction.user} | 対象: {member} | 理由: {reason}"
+        f"🔓 UNTIMEOUT\n実行者: {interaction.user}\n対象: {member}\n理由: {reason}"
     )
 
 ITEMS_PER_PAGE = 10
@@ -371,7 +372,104 @@ async def banlist_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
+LOG_CHANNEL_ID = 1465702012921581828
+
+class PurgeConfirmView(View):
+    def __init__(self, interaction, amount, user):
+        super().__init__(timeout=30)
+        self.interaction = interaction
+        self.amount = amount
+        self.user = user
+        self.author_id = interaction.user.id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(
+                "この操作はコマンド実行者のみ行えます。",
+                ephemeral=True
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="✅ 削除する", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: Button):
+        channel = interaction.channel
+
+        def check(msg: discord.Message):
+            if self.user:
+                return msg.author.id == self.user.id
+            return True
+
+        deleted = await channel.purge(limit=self.amount, check=check)
+
+        # ----- ログ送信 -----
+        log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
+        if log_channel:
+            embed = discord.Embed(
+                title="🧹 メッセージ削除ログ",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow()
+            )
+            embed.add_field(name="実行者", value=f"{interaction.user} (`{interaction.user.id}`)", inline=False)
+            embed.add_field(name="チャンネル", value=channel.mention, inline=False)
+            embed.add_field(name="削除数", value=str(len(deleted)), inline=True)
+            if self.user:
+                embed.add_field(name="対象ユーザー", value=f"{self.user} (`{self.user.id}`)", inline=False)
+
+            await log_channel.send(embed=embed)
+
+        await interaction.response.edit_message(
+            content=f"🧹 **{len(deleted)}件** のメッセージを削除しました。",
+            view=None
+        )
+
+    @discord.ui.button(label="❌ キャンセル", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.edit_message(
+            content="❌ 削除をキャンセルしました。",
+            view=None
+        )
+
+
+# ---------- /purge コマンド ----------
+@bot.tree.command(
+    name="purge",
+    description="メッセージを一括削除します。また、ユーザーを指定するとそのユーザーのメッセージのみ削除することができます。"
+)
+@app_commands.describe(
+    amount="削除するメッセージ数（1〜100）",
+    user="特定ユーザーのメッセージのみ削除"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def purge(
+    interaction: discord.Interaction,
+    amount: app_commands.Range[int, 1, 100],
+    user: discord.User | None = None
+):
+    target_text = f"{user} のメッセージを" if user else ""
+    content = (
+        f"⚠️ **確認**\n"
+        f"{target_text} **{amount}件** 削除します。\n"
+        f"本当に削除しますか？"
+    )
+
+    view = PurgeConfirmView(interaction, amount, user)
+    await interaction.response.send_message(
+        content=content,
+        view=view,
+        ephemeral=True
+    )
+
+
+@purge.error
+async def purge_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message(
+            "このコマンドを使う権限がありません。",
+            ephemeral=True
+        )
 
 bot.run(os.getenv("TOKEN"))
+
 
 
