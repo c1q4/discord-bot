@@ -433,7 +433,7 @@ class PurgeConfirmView(View):
 
 # ---------- /purge コマンド ----------
 @bot.tree.command(
-    name="purge",
+    name="clear",
     description="メッセージを一括削除します。また、ユーザーを指定するとそのユーザーのメッセージのみ削除することができます。"
 )
 @app_commands.describe(
@@ -508,6 +508,7 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
         )
         
 bot.run(os.getenv("TOKEN"))
+
 
 
 
