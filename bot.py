@@ -469,7 +469,46 @@ async def purge_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
+REMOVE_ROLE_ID = 1465281528300048437
+ADD_ROLE_ID    = 1465097164249370624
+
+@bot.tree.command(name="verify", description="メンバーを認証済みの状態にします。")
+@app_commands.describe(member="認証するメンバー")
+async def roleswap(interaction: discord.Interaction, member: discord.Member):
+
+    from_role = interaction.guild.get_role(FROM_ROLE_ID)
+    to_role = interaction.guild.get_role(TO_ROLE_ID)
+
+    if from_role is None or to_role is None:
+        await interaction.response.send_message(
+            "ロールが見つかりません。",
+            ephemeral=True
+        )
+        return
+
+    if from_role not in member.roles:
+        await interaction.response.send_message(
+            f"{member.mention} は対象ロールを持っていません。",
+            ephemeral=True
+        )
+        return
+
+    try:
+        await member.remove_roles(from_role)
+        await member.add_roles(to_role)
+
+        await interaction.response.send_message(
+            f"{member.mention} のロールを **{from_role.name} → {to_role.name}** に入れ替えました ✅"
+        )
+
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "権限が足りません。（Botのロール位置を確認してください）",
+            ephemeral=True
+        )
+        
 bot.run(os.getenv("TOKEN"))
+
 
 
 
