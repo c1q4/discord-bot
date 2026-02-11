@@ -625,10 +625,10 @@ async def unfix(ctx):
 @bot.event
 async def on_message(message):
 
+    await bot.process_commands(message)
+    
     if message.author.bot:
         return
-
-    await bot.process_commands(message)
 
     channel_id = message.channel.id
 
@@ -650,4 +650,5 @@ async def on_message(message):
         save_data()
         
 bot.run(os.getenv("TOKEN"))
+
 
