@@ -507,7 +507,25 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
+@bot.command()
+@commands.has_permissions(manage_messages=True)
+async def fix(ctx, message_id: int):
+    try:
+        message = await ctx.channel.fetch_message(message_id)
+        await message.pin()
+        await ctx.send("📌 メッセージを固定しました", delete_after=5)
+    except discord.NotFound:
+        await ctx.send("❌ メッセージが見つかりません", delete_after=5)
+    except discord.Forbidden:
+        await ctx.send("❌ 権限がありません", delete_after=5)
+
+@fix.error
+async def fix_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ このコマンドを使う権限がありません")
+
 bot.run(os.getenv("TOKEN"))
+
 
 
 
