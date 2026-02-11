@@ -507,38 +507,54 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
+fixed_messages = {}
+
 @bot.command()
 @commands.has_permissions(manage_messages=True)
-async def fix(ctx, message_id: int):
-    try:
-        message = await ctx.channel.fetch_message(message_id)
-        await message.pin()
-        await ctx.send("📌 メッセージを固定しました", delete_after=5)
-    except discord.NotFound:
-        await ctx.send("❌ メッセージが見つかりません", delete_after=5)
-    except discord.Forbidden:
-        await ctx.send("❌ 権限がありません", delete_after=5)
+async def fix(ctx, *, content: str):
+    # 既に固定メッセージがあれば削除
+    if ctx.channel.id in fixed_messages:
+        try:
+            old_msg = await ctx.channel.fetch_message(
+                fixed_messages[ctx.channel.id]["message_id"]
+            )
+            await old_msg.delete()
+        except:
+            pass
 
-@fix.error
-async def fix_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ このコマンドを使う権限がありません")
+    # 新しく送信
+    msg = await ctx.send(content)
+
+    fixed_messages[ctx.channel.id] = {
+        "content": content,
+        "message_id": msg.id
+    }
+
+    await ctx.message.delete()
+
+@bot.event
+async def on_message(message):
+    # Bot自身 or コマンドは無視
+    if message.author.bot:
+        return
+
+    await bot.process_commands(message)
+
+    channel_id = message.channel.id
+
+    if channel_id not in fixed_messages:
+        return
+
+    data = fixed_messages[channel_id]
+
+    try:
+        old_msg = await message.channel.fetch_message(data["message_id"])
+        await old_msg.delete()
+    except:
+        pass
+
+    # 再送信
+    new_msg = await message.channel.send(data["content"])
+    fixed_messages[channel_id]["message_id"] = new_msg.id
 
 bot.run(os.getenv("TOKEN"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
