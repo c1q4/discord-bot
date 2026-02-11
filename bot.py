@@ -4,6 +4,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 from discord.ui import View, Button
 from datetime import datetime
+import json
 import io
 import os
 # .env から TOKEN を読み込む
@@ -507,12 +508,71 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
+DATA_FILE = "fixed_messages.json"
+
 fixed_messages = {}
 
+def save_data():
+    data_to_save = {
+        str(channel_id): {
+            "content": data["content"],
+            "message_id": data["message_id"]
+        }
+        for channel_id, data in fixed_messages.items()
+    }
+
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data_to_save, f, indent=4, ensure_ascii=False)
+
+
+# -------------------------
+# データ読み込み
+# -------------------------
+async def load_data():
+    if not os.path.exists(DATA_FILE):
+        return
+
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    for channel_id_str, info in data.items():
+        channel = bot.get_channel(int(channel_id_str))
+        if channel is None:
+            continue
+
+        try:
+            # 起動時に最新化（再送信して一番下へ）
+            new_msg = await channel.send(info["content"])
+
+            fixed_messages[int(channel_id_str)] = {
+                "content": info["content"],
+                "message_id": new_msg.id,
+                "lock": asyncio.Lock()
+            }
+
+        except:
+            pass
+
+    save_data()
+
+
+# -------------------------
+# 起動時
+# -------------------------
+@bot.event
+async def on_ready():
+    print(f"ログイン完了: {bot.user}")
+    await load_data()
+
+
+# -------------------------
+# !fix
+# -------------------------
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def fix(ctx, *, content: str):
-    # 既に固定メッセージがあれば削除
+
+    # 既存削除
     if ctx.channel.id in fixed_messages:
         try:
             old_msg = await ctx.channel.fetch_message(
@@ -522,19 +582,49 @@ async def fix(ctx, *, content: str):
         except:
             pass
 
-    # 新しく送信
     msg = await ctx.send(content)
 
     fixed_messages[ctx.channel.id] = {
         "content": content,
-        "message_id": msg.id
+        "message_id": msg.id,
+        "lock": asyncio.Lock()
     }
 
+    save_data()
     await ctx.message.delete()
 
+
+# -------------------------
+# !unfix
+# -------------------------
+@bot.command()
+@commands.has_permissions(manage_messages=True)
+async def unfix(ctx):
+
+    if ctx.channel.id not in fixed_messages:
+        await ctx.send("❌ 固定メッセージはありません", delete_after=5)
+        return
+
+    try:
+        old_msg = await ctx.channel.fetch_message(
+            fixed_messages[ctx.channel.id]["message_id"]
+        )
+        await old_msg.delete()
+    except:
+        pass
+
+    del fixed_messages[ctx.channel.id]
+    save_data()
+
+    await ctx.send("✅ 固定を解除しました", delete_after=5)
+
+
+# -------------------------
+# メッセージ監視
+# -------------------------
 @bot.event
 async def on_message(message):
-    # Bot自身 or コマンドは無視
+
     if message.author.bot:
         return
 
@@ -547,14 +637,17 @@ async def on_message(message):
 
     data = fixed_messages[channel_id]
 
-    try:
-        old_msg = await message.channel.fetch_message(data["message_id"])
-        await old_msg.delete()
-    except:
-        pass
+    async with data["lock"]:
 
-    # 再送信
-    new_msg = await message.channel.send(data["content"])
-    fixed_messages[channel_id]["message_id"] = new_msg.id
+        try:
+            old_msg = await message.channel.fetch_message(data["message_id"])
+            await old_msg.delete()
+        except:
+            pass
 
+        new_msg = await message.channel.send(data["content"])
+        fixed_messages[channel_id]["message_id"] = new_msg.id
+        save_data()
+        
 bot.run(os.getenv("TOKEN"))
+
