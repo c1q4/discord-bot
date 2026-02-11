@@ -7,6 +7,8 @@ from datetime import datetime
 import json
 import io
 import os
+import asyncio
+
 # .env から TOKEN を読み込む
 load_dotenv()
 
@@ -629,7 +631,7 @@ async def on_message(message):
     
     if message.author.bot:
         return
-
+    
     channel_id = message.channel.id
 
     if channel_id not in fixed_messages:
@@ -650,5 +652,6 @@ async def on_message(message):
         save_data()
         
 bot.run(os.getenv("TOKEN"))
+
 
 
