@@ -469,8 +469,8 @@ async def purge_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
-FROM_ROLE_ID = 1465281528300048437
-TO_ROLE_ID   = 1465097164249370624
+FROM_ROLE_ID = 1469968698730352675
+TO_ROLE_ID   = 1469968699082539124
 
 @bot.tree.command(name="verify", description="メンバーを認証済みの状態にします。")
 @app_commands.describe(member="認証するメンバー")
@@ -488,7 +488,7 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
 
     if from_role not in member.roles:
         await interaction.response.send_message(
-            f"{member.mention} は対象ロールを持っていません。",
+            f"対象者は既に認証済みです。",
             ephemeral=True
         )
         return
@@ -507,81 +507,8 @@ async def roleswap(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
-# 最初から決まったロールID（ロック対象）
-LOCK_ROLES_IDS = [
-    1465097164249370624,  # Member
-    1465281528300048437,
-]
-
-@bot.tree.command(name="lock", description="チャンネルをロックします")
-async def lock(interaction: discord.Interaction):
-
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message(
-            "このコマンドを使う権限がありません。",
-            ephemeral=True
-        )
-        return
-
-    channel = interaction.channel
-
-    for role_id in LOCK_ROLES_IDS:
-        role = interaction.guild.get_role(role_id)
-        if role is None:
-            continue
-        overwrite = channel.overwrites_for(role)
-        overwrite.send_messages = False
-        overwrite.add_reactions = False
-        await channel.set_permissions(role, overwrite=overwrite)
-
-    # Embed を作成してチャンネルリンクを表示
-    embed = discord.Embed(
-        description=f"{channel.jump_url}をロックしました",  # jump_url でクリック可能
-        color=discord.Color.red()
-    )
-    await interaction.response.send_message(embed=embed)
-
-
-@bot.tree.command(name="unlock", description="このチャンネルのロックを解除します")
-async def unlock(interaction: discord.Interaction):
-
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message(
-            "このコマンドを使う権限がありません。",
-            ephemeral=True
-        )
-        return
-
-    channel = interaction.channel
-
-    for role_id in LOCK_ROLES_IDS:
-        role = interaction.guild.get_role(role_id)
-        if role is None:
-            continue
-        overwrite = channel.overwrites_for(role)
-        overwrite.send_messages = None
-        overwrite.add_reactions = None
-        await channel.set_permissions(role, overwrite=overwrite)
-
-    embed = discord.Embed(
-        description=f"{channel.jump_url}のロックを解除しました",  # jump_url でクリック可能
-        color=discord.Color.green()
-    )
-    await interaction.response.send_message(embed=embed)
-
-@bot.command()
-async def boostembed(ctx):
-    embed = discord.Embed(
-        description="# <:boost15month:1466982376717549721>：ブースト特典\n\n## Lv.1 特典🔥\n-# （ブースト数1回で解放）\n\nｰｰｰ\n\n> ①：専用ロール「《 BOOSTER Lv1 》」付与\n\nｰｰｰ\n\n> ②：トレードフォーラムにてup行為の許可\n> -# __（1時間に1回）__\n\nｰｰｰ\n\n> ③：ロールアイコン（Boost 1month）が名前の横に表示\n\n## ｰｰｰ\n\n## Lv.2 特典🔥\n-# （ブースト数2回で解放）\n\nｰｰｰ\n\n> ①：専用ロール「《 BOOSTER Lv2 》」付与\n\nｰｰｰ\n\n> ②：トレードフォーラムにてup行為の許可\n> -# __（30分に1回）__\n\nｰｰｰ\n\n> ③：ロールアイコン（Boost 15month）が名前の横に表示\n\nｰｰｰ\n\n> 【New!】④：カスタムカラーロールの付与\n> -# （色指定◯）（重要ロールと色重複✕）\n\n## ｰｰｰ\n\n## Lv.3 特典🔥\n-# （ブースト数3回で解放）\n\nｰｰｰ\n\n> ①：専用ロール「《 VIP Lv3 》」付与\n\nｰｰｰ\n\n> ②：トレードフォーラムにてup行為の許可\n> -# __（15分に1回）__\n\nｰｰｰ\n\n> ③：ロールアイコン（Crown）が名前の横に表示\n\nｰｰｰ\n\n> ④：カスタムカラーロールの付与\n> -# （色指定◯） （重要ロールと色重複✕）\n\nｰｰｰ\n\n> 【New!】⑤：トレード時、仲介料の免除\n> -# （迷惑料等は有り）\n\n以上がブースト特典です。",
-        color=discord.Color(0xff5dd6)
-    )
-
-    embed.set_footer(text="― 𝑅𝑜𝑏𝑙𝑜𝑥  𝐽𝑃鯖✨ ―")
-
-    await ctx.send(embed=embed)
-
-
 bot.run(os.getenv("TOKEN"))
+
 
 
 
