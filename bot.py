@@ -652,8 +652,75 @@ async def on_message(message):
         new_msg = await message.channel.send(data["content"])
         fixed_messages[channel_id]["message_id"] = new_msg.id
         save_data()
-        
+
+
+TICKET_CATEGORY_ID = 1469968700932362379  # チケットを作るカテゴリID
+SUPPORT_ROLE_ID = 1471439011934507071  # サポートスタッフロールID
+
+DATA_FILE = "ticket_data.json"
+
+ticket_lock = asyncio.Lock()
+
+class TicketDropdown(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="質問-要望", emoji="🙋🏽"),
+            discord.SelectOption(label="規約違反者の報告", emoji="💀"),
+            discord.SelectOption(label="認証サポート", emoji="✔️"),
+        ]
+        super().__init__(placeholder="内容を選択してください", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        async with ticket_lock:
+
+            # 連番取得
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, "r") as f:
+                    data = json.load(f)
+                ticket_number = data.get("last_number", 0) + 1
+            else:
+                ticket_number = 1
+
+            # チャンネル作成
+            guild = interaction.guild
+            category = guild.get_channel(TICKET_CATEGORY_ID)
+            support_role = guild.get_role(SUPPORT_ROLE_ID)
+
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+                support_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+            }
+
+            channel = await guild.create_text_channel(
+                name=f"ticket-{ticket_number:04}",
+                category=category,
+                overwrites=overwrites
+            )
+
+            embed = discord.Embed(
+                title=f"📩 {self.values[0]} #{ticket_number:04}",
+                description=f"{interaction.user.mention} さんの {self.values[0]} チケットです。\nスタッフが対応します。",
+                color=0x2ecc71
+            )
+
+            await channel.send(embed=embed, view=CloseView())
+
+            # 保存
+            with open(DATA_FILE, "w") as f:
+                json.dump({"last_number": ticket_number}, f)
+
+            await interaction.response.send_message(f"作成完了：{channel.mention}", ephemeral=True)
+
+
+class TicketSelectView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(TicketDropdown())
+
+
 bot.run(os.getenv("TOKEN"))
+
 
 
 
