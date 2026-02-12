@@ -19,6 +19,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+     activity = discord.Game(name="discord.gg/roblox-jp")
+    await bot.change_presence(status=discord.Status.online, activity=activity)
     print(f"ログインしました: {bot.user}")
     try:
         synced = await bot.tree.sync()  # スラッシュコマンド同期
@@ -652,6 +654,7 @@ async def on_message(message):
         save_data()
         
 bot.run(os.getenv("TOKEN"))
+
 
 
 
