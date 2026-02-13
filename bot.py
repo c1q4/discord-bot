@@ -8,6 +8,7 @@ import json
 import io
 import os
 import asyncio
+import datetime
 
 # .env から TOKEN を読み込む
 load_dotenv()
@@ -656,11 +657,127 @@ async def on_message(message):
 
 TICKET_CATEGORY_ID = 1469968700932362379  # チケットを作るカテゴリID
 SUPPORT_ROLE_ID = 1471439011934507071  # サポートスタッフロールID
-
+LOG_CHANNEL_ID = 1471786731006201877
 DATA_FILE = "ticket_data.json"
 
 ticket_lock = asyncio.Lock()
 
+# ====== チケット番号管理 ======
+def get_next_ticket_number():
+    if not os.path.exists(DATA_FILE):
+        return 1
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
+    return data.get("last_number", 0) + 1
+
+def save_ticket_number(number):
+    with open(DATA_FILE, "w") as f:
+        json.dump({"last_number": number}, f)
+
+# ====== HTMLログ生成 ======
+async def generate_html_log(channel: discord.TextChannel):
+    messages = []
+
+    async for msg in channel.history(limit=None, oldest_first=True):
+        created = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        content = msg.content.replace("<", "&lt;").replace(">", "&gt;")
+
+        attachments = ""
+        for attachment in msg.attachments:
+            attachments += f'<br><a href="{attachment.url}">{attachment.filename}</a>'
+
+        messages.append(f"""
+        <div class="message">
+            <span class="author">{msg.author}:</span>
+            <span class="time">{created}</span>
+            <div class="content">{content}{attachments}</div>
+        </div>
+        """)
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{channel.name} log</title>
+        <style>
+            body {{ font-family: Arial; background-color: #2c2f33; color: white; }}
+            .message {{ margin-bottom: 10px; padding: 5px; }}
+            .author {{ font-weight: bold; color: #00b0f4; }}
+            .time {{ font-size: 0.8em; color: gray; margin-left: 10px; }}
+        </style>
+    </head>
+    <body>
+        <h2>Ticket Log - {channel.name}</h2>
+        {''.join(messages)}
+    </body>
+    </html>
+    """
+
+    filename = f"{channel.name}.html"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    return filename
+
+# ====== 閉じる確認 ======
+class ConfirmCloseView(discord.ui.View):
+    def __init__(self, user: discord.User):
+        super().__init__(timeout=60)
+        self.user = user
+
+    @discord.ui.button(label="閉じる", style=discord.ButtonStyle.red)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        if interaction.user != self.user:
+            await interaction.response.send_message("あなたの操作ではありません", ephemeral=True)
+            return
+
+        await interaction.response.send_message("ログを保存しています...", ephemeral=True)
+
+        channel = interaction.channel
+        filename = await generate_html_log(channel)
+
+        log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
+
+        with open(filename, "rb") as f:
+            await log_channel.send(
+                content=f"📁チケットログ: {channel.name}",
+                file=discord.File(f)
+            )
+
+        os.remove(filename)
+        await channel.delete()
+
+    @discord.ui.button(label="キャンセル", style=discord.ButtonStyle.grey)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        if interaction.user != self.user:
+            await interaction.response.send_message("あなたの操作ではありません", ephemeral=True)
+            return
+
+        await interaction.response.send_message("キャンセルしました", ephemeral=True)
+
+# ====== 閉じるボタン ======
+class CloseView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="チケットを閉じる",
+        style=discord.ButtonStyle.red,
+        emoji="🗑️",
+        custom_id="close_ticket"
+    )
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = ConfirmCloseView(interaction.user)
+        await interaction.response.send_message(
+            "本当にチケットを閉じますか？",
+            view=view,
+            ephemeral=True
+        )
+
+# ====== ドロップダウン ======
 class TicketDropdown(discord.ui.Select):
     def __init__(self):
         options = [
@@ -668,58 +785,105 @@ class TicketDropdown(discord.ui.Select):
             discord.SelectOption(label="規約違反者の報告", emoji="💀"),
             discord.SelectOption(label="認証サポート", emoji="✔️"),
         ]
-        super().__init__(placeholder="内容を選択してください", min_values=1, max_values=1, options=options)
 
-    async def callback(self, interaction: discord.Interaction):
-        async with ticket_lock:
+        super().__init__(
+            placeholder="内容を選択してください",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id="ticket_dropdown"
+        )
 
-            # 連番取得
-            if os.path.exists(DATA_FILE):
-                with open(DATA_FILE, "r") as f:
-                    data = json.load(f)
-                ticket_number = data.get("last_number", 0) + 1
-            else:
-                ticket_number = 1
+async def callback(self, interaction: discord.Interaction):
 
-            # チャンネル作成
-            guild = interaction.guild
-            category = guild.get_channel(TICKET_CATEGORY_ID)
-            support_role = guild.get_role(SUPPORT_ROLE_ID)
+    async with ticket_lock:
 
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-                support_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
-            }
+        ticket_number = get_next_ticket_number()
 
-            channel = await guild.create_text_channel(
-                name=f"ticket-{ticket_number:04}",
-                category=category,
-                overwrites=overwrites
+        guild = interaction.guild
+        category = guild.get_channel(TICKET_CATEGORY_ID)
+        support_role = guild.get_role(SUPPORT_ROLE_ID)
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+            support_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        }
+
+        channel = await guild.create_text_channel(
+            name=f"ticket-{ticket_number:04}",
+            category=category,
+            overwrites=overwrites
+        )
+
+        selected = self.values[0]
+
+        # 🔥 ここで内容を変更
+        if selected == "🙋🏽質問-要望":
+            embed = discord.Embed(
+                title=f"🙋🏽質問-要望 #{ticket_number:04}",
+                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                color=0x3498db
             )
 
+        elif selected == "💀規約違反者の報告":
             embed = discord.Embed(
-                title=f"📩 {self.values[0]} #{ticket_number:04}",
-                description=f"{interaction.user.mention} さんの {self.values[0]} チケットです。\nスタッフが対応します。",
+                title=f"💀規約違反者の報告 #{ticket_number:04}",
+                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                color=0xe74c3c
+            )
+
+        elif selected == "✔️認証サポート":
+            embed = discord.Embed(
+                title=f"✔️認証サポート #{ticket_number:04}",
+                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
                 color=0x2ecc71
             )
 
-            await channel.send(embed=embed, view=CloseView())
+        else:
+            embed = discord.Embed(
+                title=f"📩 お問い合わせ #{ticket_number:04}",
+                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                color=0x95a5a6
+            )
 
-            # 保存
-            with open(DATA_FILE, "w") as f:
-                json.dump({"last_number": ticket_number}, f)
+        await channel.send(content=interaction.user.mention, embed=embed, view=CloseView())
 
-            await interaction.response.send_message(f"作成完了：{channel.mention}", ephemeral=True)
+        save_ticket_number(ticket_number)
+
+        await interaction.response.send_message(
+            f"作成完了：{channel.mention}",
+            ephemeral=True
+        )
 
 
-class TicketSelectView(discord.ui.View):
+class TicketView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(TicketDropdown())
 
+# ====== パネル設置 ======
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def ticketpanel(ctx):
+
+    embed = discord.Embed(
+        title="お問い合わせ一覧",
+        description="【🙋質問-要望】\nサーバーへ質問や相談、してほしいことなど要望があればこちらで受け付けます。\nサーバーへ問い合わせる時は基本ここでお願いします。\n\n【💀規約違反者の報告】\n当サーバーの規約に違反しているメンバーがいたら、こちらで報告をお願いします。\n\n【✅認証サポート】\nサーバー入室時の認証がうまくいかない場合、こちらで報告してください。\nまた認証済みの方はこのチケットの作成はやめてください。\n\n問合せカテゴリが確認できましたら、下のボタンを押し問合せ内容を選択してください。",
+        color=0x3498db
+    )
+
+    await ctx.send(embed=embed, view=TicketView())
+
+# ====== 再起動対応 ======
+@bot.event
+async def on_ready():
+    bot.add_view(TicketView())
+    bot.add_view(CloseView())
+    print("✅ チケットシステム起動完了")
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
