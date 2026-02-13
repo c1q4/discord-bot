@@ -873,11 +873,21 @@ async def ticketpanel(ctx):
 # ====== 再起動対応 ======
 @bot.event
 async def on_ready():
+    # 再起動対応
     bot.add_view(TicketView())
     bot.add_view(CloseView())
+
+    # ステータス設定
+    activity = discord.Game(name="チケット受付中")
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=activity
+    )
+
     print("✅ チケットシステム起動完了")
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
