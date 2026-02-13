@@ -795,11 +795,9 @@ class TicketDropdown(discord.ui.Select):
         )
 
 async def callback(self, interaction: discord.Interaction):
-
-    async with ticket_lock:
+     async with ticket_lock:
 
         ticket_number = get_next_ticket_number()
-
         guild = interaction.guild
         category = guild.get_channel(TICKET_CATEGORY_ID)
         support_role = guild.get_role(SUPPORT_ROLE_ID)
@@ -825,21 +823,18 @@ async def callback(self, interaction: discord.Interaction):
                 description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
                 color=0x3498db
             )
-
         elif selected == "💀規約違反者の報告":
             embed = discord.Embed(
                 title=f"💀規約違反者の報告 #{ticket_number:04}",
                 description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
                 color=0xe74c3c
             )
-
         elif selected == "✔️認証サポート":
             embed = discord.Embed(
                 title=f"✔️認証サポート #{ticket_number:04}",
                 description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
                 color=0x2ecc71
             )
-
         else:
             embed = discord.Embed(
                 title=f"📩 お問い合わせ #{ticket_number:04}",
@@ -883,6 +878,7 @@ async def on_ready():
     print("✅ チケットシステム起動完了")
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
