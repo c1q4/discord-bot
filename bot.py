@@ -785,7 +785,6 @@ class TicketDropdown(discord.ui.Select):
             discord.SelectOption(label="規約違反者の報告", emoji="💀"),
             discord.SelectOption(label="認証サポート", emoji="✔️"),
         ]
-
         super().__init__(
             placeholder="内容を選択してください",
             min_values=1,
@@ -794,68 +793,56 @@ class TicketDropdown(discord.ui.Select):
             custom_id="ticket_dropdown"
         )
 
-async def callback(self, interaction: discord.Interaction):
-     async with ticket_lock:
+    async def callback(self, interaction: discord.Interaction):
+        async with ticket_lock:
+            ticket_number = get_next_ticket_number()
+            guild = interaction.guild
+            category = guild.get_channel(TICKET_CATEGORY_ID)
+            support_role = guild.get_role(SUPPORT_ROLE_ID)
 
-        ticket_number = get_next_ticket_number()
-        guild = interaction.guild
-        category = guild.get_channel(TICKET_CATEGORY_ID)
-        support_role = guild.get_role(SUPPORT_ROLE_ID)
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+                support_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+            }
 
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-            support_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
-        }
-
-        channel = await guild.create_text_channel(
-            name=f"ticket-{ticket_number:04}",
-            category=category,
-            overwrites=overwrites
-        )
-
-        selected = self.values[0]
-
-        # 🔥 ここで内容を変更
-        if selected == "🙋🏽質問-要望":
-            embed = discord.Embed(
-                title=f"🙋🏽質問-要望 #{ticket_number:04}",
-                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                color=0x3498db
-            )
-        elif selected == "💀規約違反者の報告":
-            embed = discord.Embed(
-                title=f"💀規約違反者の報告 #{ticket_number:04}",
-                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                color=0xe74c3c
-            )
-        elif selected == "✔️認証サポート":
-            embed = discord.Embed(
-                title=f"✔️認証サポート #{ticket_number:04}",
-                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                color=0x2ecc71
-            )
-        else:
-            embed = discord.Embed(
-                title=f"📩 お問い合わせ #{ticket_number:04}",
-                description=f"**要件を書いてお待ちください**。\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                color=0x95a5a6
+            channel = await guild.create_text_channel(
+                name=f"ticket-{ticket_number:04}",
+                category=category,
+                overwrites=overwrites
             )
 
-        await channel.send(content=interaction.user.mention, embed=embed, view=CloseView())
+            selected = self.values[0]
 
-        save_ticket_number(ticket_number)
+            # Embed作成
+            if selected == "🙋🏽質問-要望":
+                embed = discord.Embed(
+                    title=f"🙋🏽質問-要望 #{ticket_number:04}",
+                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                    color=0x3498db
+                )
+            elif selected == "💀規約違反者の報告":
+                embed = discord.Embed(
+                    title=f"💀規約違反者の報告 #{ticket_number:04}",
+                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                    color=0xe74c3c
+                )
+            elif selected == "✔️認証サポート":
+                embed = discord.Embed(
+                    title=f"✔️認証サポート #{ticket_number:04}",
+                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                    color=0x2ecc71
+                )
+            else:
+                embed = discord.Embed(
+                    title=f"📩 お問い合わせ #{ticket_number:04}",
+                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
+                    color=0x95a5a6
+                )
 
-        await interaction.response.send_message(
-            f"作成完了：{channel.mention}",
-            ephemeral=True
-        )
-
-
-class TicketView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.add_item(TicketDropdown())
+            await channel.send(content=interaction.user.mention, embed=embed, view=CloseView())
+            save_ticket_number(ticket_number)
+            await interaction.response.send_message(f"作成完了：{channel.mention}", ephemeral=True)
 
 # ====== パネル設置 ======
 @bot.command()
@@ -873,11 +860,9 @@ async def ticketpanel(ctx):
 # ====== 再起動対応 ======
 @bot.event
 async def on_ready():
-    # 再起動対応
     bot.add_view(TicketView())
     bot.add_view(CloseView())
 
-    # ステータス設定
     activity = discord.Game(name="チケット受付中")
     await bot.change_presence(
         status=discord.Status.online,
@@ -886,7 +871,9 @@ async def on_ready():
 
     print("✅ チケットシステム起動完了")
 
+
 bot.run(os.getenv("TOKEN"))
+
 
 
 
