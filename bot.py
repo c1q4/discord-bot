@@ -821,7 +821,6 @@ class TicketDropdown(discord.ui.Select):
                 title=f"{title} #{ticket_number:04}",
                 description=(
                     "**要件を書いてお待ちください。**\n"
-                    "<&1469968699082539130>\n"
                     f"作成者：{interaction.user.mention}\n"
                     f"USERNAME：`{interaction.user.name}`"
                 ),
@@ -829,7 +828,7 @@ class TicketDropdown(discord.ui.Select):
             )
 
             await channel.send(
-                content=interaction.user.mention,
+                content=f"{interaction.user.mention}\n<@&1471439011934507071>",
                 embed=embed,
                 view=CloseView()
             )
@@ -891,6 +890,7 @@ async def on_ready():
     print("✅ チケットシステム起動完了")
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
