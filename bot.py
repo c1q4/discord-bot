@@ -911,13 +911,6 @@ async def on_ready():
     print(f"ログイン完了: {bot.user}")
     print("✅ チケットシステム起動完了")
 
-if category is None:
-    await interaction.response.send_message("カテゴリが見つかりません", ephemeral=True)
-    return
-
-if support_role is None:
-    await interaction.response.send_message("サポートロールが見つかりません", ephemeral=True)
-    return
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -946,6 +939,7 @@ async def useradd(ctx, member: discord.Member):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
