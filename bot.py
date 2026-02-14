@@ -781,6 +781,21 @@ class TicketDropdown(discord.ui.Select):
             custom_id="ticket_dropdown"
         )
 
+category = guild.get_channel(TICKET_CATEGORY_ID)
+
+user_ticket_count = 0
+for channel in category.text_channels:
+    if interaction.user in channel.members:
+        user_ticket_count += 1
+
+if user_ticket_count >= 5:
+    await interaction.response.send_message(
+        "❌ チケットは同時に5つまで作成可能です。",
+        ephemeral=True
+    )
+    return
+
+    
     async def callback(self, interaction: discord.Interaction):
 
         async with ticket_lock:
@@ -828,7 +843,7 @@ class TicketDropdown(discord.ui.Select):
             )
 
             await channel.send(
-                content=f"{interaction.user.mention}\n<@&1471439011934507071>",
+                content=f"{interaction.user.mention}\n<@&{SUPPORT_ROLE_ID}>",
                 embed=embed,
                 view=CloseView()
             )
@@ -889,7 +904,42 @@ async def on_ready():
     print(f"ログイン完了: {bot.user}")
     print("✅ チケットシステム起動完了")
 
+if category is None:
+    await interaction.response.send_message("カテゴリが見つかりません", ephemeral=True)
+    return
+
+if support_role is None:
+    await interaction.response.send_message("サポートロールが見つかりません", ephemeral=True)
+    return
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def useradd(ctx, member: discord.Member):
+    """このチケットチャンネルに特定ユーザーの閲覧権限を追加"""
+    
+    channel = ctx.channel
+
+    # チケットチャンネルか確認
+    if not channel.name.startswith("ticket-"):
+        await ctx.send("❌ このコマンドはチケットチャンネルでのみ使えます。")
+        return
+
+    overwrites = channel.overwrites.copy()
+
+    # すでに権限がある場合は更新しない
+    if member in overwrites:
+        await ctx.send(f"⚠ {member.mention} はすでにこのチケットを閲覧できます。")
+        return
+
+    # 閲覧だけ許可、送信不可
+    overwrites[member] = discord.PermissionOverwrite(view_channel=True, send_messages=False)
+    await channel.edit(overwrites=overwrites)
+
+    await ctx.send(f"✅ {member.mention} にこのチケットの閲覧権限を付与しました。")
+
+
 bot.run(os.getenv("TOKEN"))
+
 
 
 
