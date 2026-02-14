@@ -18,16 +18,6 @@ intents.message_content = True  # メッセージを読むために必要
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-@bot.event
-async def on_ready():
-     activity = discord.Game(name="discord.gg/roblox-jp")
-    await bot.change_presence(status=discord.Status.online, activity=activity)
-    print(f"ログインしました: {bot.user}")
-    try:
-        synced = await bot.tree.sync()  # スラッシュコマンド同期
-        print(f"スラッシュコマンド同期完了: {len(synced)} 個")
-    except Exception as e:
-        print(e)
 
 # /ping コマンド
 @bot.tree.command(name="生存確認", description="Botの生存を確認します")
@@ -564,10 +554,7 @@ async def load_data():
 # -------------------------
 # 起動時
 # -------------------------
-@bot.event
-async def on_ready():
-    print(f"ログイン完了: {bot.user}")
-    await load_data()
+
 
 
 # -------------------------
@@ -860,19 +847,33 @@ async def ticketpanel(ctx):
 # ====== 再起動対応 ======
 @bot.event
 async def on_ready():
-     bot.add_view(TicketView())
-     bot.add_view(CloseView())
-     
-     activity = discord.Game(name="チケット受付中")
-     await bot.change_presence(
-          status=discord.Status.online,
-          activity=activity
-     )
 
-     print("✅　チケットシステム起動完了")
+    # スラッシュコマンド同期
+    try:
+        synced = await bot.tree.sync()
+        print(f"スラッシュコマンド同期完了: {len(synced)} 個")
+    except Exception as e:
+        print(e)
 
+    # 固定メッセージ復元
+    await load_data()
+
+    # 永続View登録（再起動対応）
+    bot.add_view(TicketView())
+    bot.add_view(CloseView())
+
+    # ステータス設定
+    activity = discord.Game(name="チケット受付中")
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=activity
+    )
+
+    print(f"ログイン完了: {bot.user}")
+    print("✅ チケットシステム起動完了")
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
