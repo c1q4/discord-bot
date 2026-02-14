@@ -85,7 +85,7 @@ async def ban(
     )
 
 
-LOG_CHANNEL_ID = 1465703396853026973
+LOG_CHANNEL_ID = 1469968700139503851
 
 @bot.tree.command(name="unban", description="BANを解除します")
 @app_commands.describe(user="BAN解除するユーザー")
@@ -211,7 +211,7 @@ async def timeout(
         f"⏳ TIMEOUT\n実行者: {interaction.user}\n対象: {member}\n理由: {reason}"
     )
 
-LOG_CHANNEL_ID = 1465703396853026973
+LOG_CHANNEL_ID = 1469968700139503851
 
 async def send_log(guild: discord.Guild, message: str):
     channel = guild.get_channel(LOG_CHANNEL_ID)
@@ -939,6 +939,7 @@ async def useradd(ctx, member: discord.Member):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
