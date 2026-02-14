@@ -903,7 +903,7 @@ async def on_ready():
     bot.add_view(CloseView())
 
     # ステータス設定
-    activity = discord.Game(name="チケット受付中")
+    activity = discord.Game(name="discord.gg/roblox-jp")
     await bot.change_presence(
         status=discord.Status.online,
         activity=activity
@@ -947,6 +947,7 @@ async def useradd(ctx, member: discord.Member):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
