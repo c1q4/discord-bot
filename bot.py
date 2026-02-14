@@ -784,16 +784,15 @@ class TicketDropdown(discord.ui.Select):
     
 async def callback(self, interaction: discord.Interaction):
     async with ticket_lock:
-        # この中に全ての処理を書く
         guild = interaction.guild
         category = guild.get_channel(TICKET_CATEGORY_ID)
+        support_role = guild.get_role(SUPPORT_ROLE_ID)
 
-        # カテゴリチェック
+        # カテゴリチェックはここに
         if category is None:
             await interaction.response.send_message("カテゴリが見つかりません", ephemeral=True)
             return
 
-        support_role = guild.get_role(SUPPORT_ROLE_ID)
         if support_role is None:
             await interaction.response.send_message("サポートロールが見つかりません", ephemeral=True)
             return
@@ -810,7 +809,7 @@ async def callback(self, interaction: discord.Interaction):
                 ephemeral=True
             )
             return
-
+        
         # ===== チケット作成処理 =====
         ticket_number = get_next_ticket_number()
         overwrites = {
@@ -948,6 +947,7 @@ async def useradd(ctx, member: discord.Member):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
