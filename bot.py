@@ -781,6 +781,10 @@ class TicketDropdown(discord.ui.Select):
             custom_id="ticket_dropdown"
         )
 
+    
+    async def callback(self, interaction: discord.Interaction):
+        async with ticket_lock:
+
 category = guild.get_channel(TICKET_CATEGORY_ID)
 
 user_ticket_count = 0
@@ -794,11 +798,7 @@ if user_ticket_count >= 5:
         ephemeral=True
     )
     return
-
-    
-    async def callback(self, interaction: discord.Interaction):
-
-        async with ticket_lock:
+            
             ticket_number = get_next_ticket_number()
             guild = interaction.guild
             category = guild.get_channel(TICKET_CATEGORY_ID)
@@ -939,6 +939,7 @@ async def useradd(ctx, member: discord.Member):
 
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
