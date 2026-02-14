@@ -764,6 +764,7 @@ class CloseView(discord.ui.View):
             ephemeral=True
         )
 
+
 # ====== ドロップダウン ======
 class TicketDropdown(discord.ui.Select):
     def __init__(self):
@@ -773,7 +774,7 @@ class TicketDropdown(discord.ui.Select):
             discord.SelectOption(label="認証サポート", emoji="✔️"),
         ]
         super().__init__(
-            placeholder="内容を選択してください",
+            placeholder="内容を選択してください...",
             min_values=1,
             max_values=1,
             options=options,
@@ -781,6 +782,7 @@ class TicketDropdown(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
+
         async with ticket_lock:
             ticket_number = get_next_ticket_number()
             guild = interaction.guild
@@ -801,35 +803,51 @@ class TicketDropdown(discord.ui.Select):
 
             selected = self.values[0]
 
-            # Embed作成
-            if selected == "🙋🏽質問-要望":
-                embed = discord.Embed(
-                    title=f"🙋🏽質問-要望 #{ticket_number:04}",
-                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                    color=0x3498db
-                )
-            elif selected == "💀規約違反者の報告":
-                embed = discord.Embed(
-                    title=f"💀規約違反者の報告 #{ticket_number:04}",
-                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                    color=0xe74c3c
-                )
-            elif selected == "✔️認証サポート":
-                embed = discord.Embed(
-                    title=f"✔️認証サポート #{ticket_number:04}",
-                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                    color=0x2ecc71
-                )
+            # 🔥 ラベルで判定する
+            if selected == "質問-要望":
+                title = "🙋🏽質問-要望"
+                color = 0x3498db
+            elif selected == "規約違反者の報告":
+                title = "💀規約違反者の報告"
+                color = 0xe74c3c
+            elif selected == "認証サポート":
+                title = "✔️認証サポート"
+                color = 0x2ecc71
             else:
-                embed = discord.Embed(
-                    title=f"📩 お問い合わせ #{ticket_number:04}",
-                    description=f"**要件を書いてお待ちください。**\n<&1469968699082539130>\n作成者：{interaction.user.mention}\nUSERNAME：`{interaction.user.name}`",
-                    color=0x95a5a6
-                )
+                title = "📩 お問い合わせ"
+                color = 0x95a5a6
 
-            await channel.send(content=interaction.user.mention, embed=embed, view=CloseView())
+            embed = discord.Embed(
+                title=f"{title} #{ticket_number:04}",
+                description=(
+                    "**要件を書いてお待ちください。**\n"
+                    "<&1469968699082539130>\n"
+                    f"作成者：{interaction.user.mention}\n"
+                    f"USERNAME：`{interaction.user.name}`"
+                ),
+                color=color
+            )
+
+            await channel.send(
+                content=interaction.user.mention,
+                embed=embed,
+                view=CloseView()
+            )
+
             save_ticket_number(ticket_number)
-            await interaction.response.send_message(f"作成完了：{channel.mention}", ephemeral=True)
+
+            await interaction.response.send_message(
+                f"作成完了：{channel.mention}",
+                ephemeral=True
+            )
+
+
+# ====== View ======
+class TicketView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(TicketDropdown())
+
 
 # ====== パネル設置 ======
 @bot.command()
@@ -873,6 +891,7 @@ async def on_ready():
     print("✅ チケットシステム起動完了")
 
 bot.run(os.getenv("TOKEN"))
+
 
 
 
