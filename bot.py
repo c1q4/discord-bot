@@ -18,6 +18,36 @@ intents.message_content = True  # メッセージを読むために必要
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ---------- ギルドオーナーチェック ----------
+def is_guild_owner():
+    async def predicate(interaction: discord.Interaction):
+        if interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message(
+                "❌ このコマンドはサーバーオーナーのみ実行できます。",
+                ephemeral=True
+            )
+            return False
+        return True
+    return app_commands.check(predicate)
+
+
+# ---------- ギルド設定用データ ----------
+SETTINGS_FILE = "guild_settings.json"
+guild_settings = {}
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(settings, f, ensure_ascii=False, indent=4)
+
+def load_settings():
+    global guild_settings
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            guild_settings = json.load(f)
+    else:
+        guild_settings = {}
+load_settings()
+
 
 # /ping コマンド
 @bot.tree.command(name="生存確認", description="Botの生存を確認します")
@@ -465,8 +495,9 @@ async def purge_error(interaction: discord.Interaction, error):
             ephemeral=True
         )
 
+
 FROM_ROLE_ID = 1469968698730352675
-TO_ROLE_ID   = 1469968699082539124
+TO_ROLE_ID = 1469968699082539124
 
 @bot.tree.command(name="verify", description="メンバーを認証済みの状態にします。")
 @app_commands.describe(member="認証するメンバー")
@@ -937,27 +968,68 @@ async def useradd(ctx, member: discord.Member):
 
     await ctx.send(f"✅ {member.mention} にこのチケットの閲覧権限を付与しました。")
 
+# ---------- チケット設定 ----------
+@bot.tree.command(
+    name="setup_ticket",
+    description="チケットを作成するカテゴリIDとサポートロールIDを設定できます。"
+)
+@is_guild_owner()
+async def setup_ticket(
+    interaction: discord.Interaction,
+    category: discord.CategoryChannel,
+    support_role: discord.Role
+):
+    gid = str(interaction.guild.id)
+    guild_settings.setdefault(gid, {})
+
+    guild_settings[gid]["ticket_category_id"] = category.id
+    guild_settings[gid]["support_role_id"] = support_role.id
+
+    save_settings(guild_settings)
+    await interaction.response.send_message("✅ チケットカテゴリとサポートロール設定完了", ephemeral=True)
+
+
+# ---------- 認証ロール設定 ----------
+@bot.tree.command(
+    name="setup_verify",
+    description="認証コマンドの未認証ロールと認証済みロールを設定できます。"
+)
+@is_guild_owner()
+async def setup_verify(
+    interaction: discord.Interaction,
+    from_role: discord.Role,
+    to_role: discord.Role
+):
+    gid = str(interaction.guild.id)
+    guild_settings.setdefault(gid, {})
+
+    guild_settings[gid]["verify_from_role_id"] = from_role.id
+    guild_settings[gid]["verify_to_role_id"] = to_role.id
+
+    save_settings(guild_settings)
+    await interaction.response.send_message("✅ 認証ロール設定完了", ephemeral=True)
+
+
+# ---------- ログチャンネル設定 ----------
+@bot.tree.command(
+    name="setup_logs",
+    description="/ban系ログ、/clearログ、ticketメッセージログ用のチャンネルを設定できます。"
+)
+@is_guild_owner()
+async def setup_logs(
+    interaction: discord.Interaction,
+    mod_log: discord.TextChannel,
+    purge_log: discord.TextChannel,
+    ticket_log: discord.TextChannel
+):
+    gid = str(interaction.guild.id)
+    guild_settings.setdefault(gid, {})
+
+    guild_settings[gid]["mod_log_channel_id"] = mod_log.id
+    guild_settings[gid]["purge_log_channel_id"] = purge_log.id
+    guild_settings[gid]["ticket_log_channel_id"] = ticket_log.id
+
+    save_settings(guild_settings)
+    await interaction.response.send_message("✅ ログチャンネル設定完了", ephemeral=True)
 
 bot.run(os.getenv("TOKEN"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
